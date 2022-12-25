@@ -4,6 +4,10 @@
  * 
  * 60초 동안 진행되는 스코어 게임.
  */
+
+#include<LiquidCrystal_I2C_Hangul.h>
+#include<Wire.h>
+
 #define DISTMODE 4
 #define ACCELMODE 5
 #define JODOMODE 6
@@ -12,6 +16,7 @@
 int gameClockBase = 0;
 int leds[4] = {2,3,4,5};
 int buttons[4] = {8,9,10,11};
+LiquidCrystal_I2C_Hangul lcd(0x3F,16,2); //LCD 클래스 초기화
 
 /**
  * 남은 시간을 7-segment를 표현하는 것은 기술적으로 어려울 것 같다. 왜냐하면 게임에서 버튼을 입력받거나 하는 시간을이 1초를 넘어서 일정한 시점에 시간을 갱신해주는 것은 
@@ -22,7 +27,10 @@ int buttons[4] = {8,9,10,11};
  * 7segment를 통해서 점수를 출력
  */
 void printScore(int score){
-  
+   lcd.clear();
+   lcd.printHangul(L"점수",0,6);  
+   lcd.setCursor(0,1);
+   lcd.print(score,DEC);
 }
 
 /**
@@ -59,7 +67,6 @@ int getDistance(void){
 }
 
 
-
 /**
  *  LCD에 게임 명령어 출력하기
  *  매개변수인 mode와 command에 따라서 유저에게 적절한 명령어를 전달
@@ -69,29 +76,36 @@ void printCommand(int mode, int command){
   if(mode == DISTMODE){
      if(command == 0){
         //인식되는 거리를 가깝게 해라
+        lcd.clear();
+        lcd.printHangul(L"가까이오세요.",0,6); 
      }
      else{
       //인식되는 거리를 멀게 해라
+        lcd.clear();
+        lcd.printHangul(L"멀리가세요.",0,5);
      }
   }
   else if(mode == ACCELMODE){
-    if(command == 0){
-       //왼쪽으로 기울기
-    }
-    else{
-      // 오른쪽으로 기울기
-    }
+    lcd.clear();
+    lcd.printHangul(L"두드리세요",0,5);
+     
   }
   else if(mode =JODOMODE){
     if (command == 0){
       //불빛을 줄여라
+      lcd.clear();
+      lcd.printHangul(L"불꺼주세요",0,5);
     }
     else{
       //불빛을 높여라
+      lcd.clear();
+      lcd.printHangul(L"불켜주세요",0,5);
     }
   }
   else{
    //두더지 모드 입니다. 
+      lcd.clear();
+      lcd.printHangul(L"두더지모드입니다",0,8);
   }
 }
 
@@ -105,6 +119,16 @@ void setup() {
   }
   
   Serial.begin(9600);
+
+  lcd.init();
+  lcd.backlight();
+  lcd.setDelayTime(10);
+  lcd.printHangul(L"한글출력완료",0,6); //lcd.printHangul(한글 문장, 시작 포인트, 문장 길이);
+
+}
+
+void loop() {
+}
 }
 
 int getGameClock(){
@@ -175,17 +199,9 @@ int accelState(int select){
   boolean isHit = false;
   int base = millis() ;
   while(getInputInterval(base)<3000){
-    if (select){
-      if(getAccel() >0){
-        isHit=true;
-        break;
-      }
-    }
-    else{
-      if(getAccel()<0){
-        isHit=true;
-        break;
-    }
+    /*
+     * 더블 탭인 경우의 로직 작성
+     */
    }
    if(isHit ==true)return 1;
    else return 0;
@@ -212,19 +228,19 @@ int getScore(int value,int mode){
 
 void loop() {
   Serial.println("game start");
-
+  lcd.printHangul(L"게임시작",0,4);
   int score = 0;
   while(abs(getGameClock()) < 30000){
     Serial.println(getGameClock());
     int num = random(7);//0 부터 3까지 두더지 모드 4부터 6까지 센서 인식 모드
     
-    if (num == JODOMODE){
+    if (num == JODOMODE){ //조도 모드일때
       int isHit = 0;
       Serial.println("jodo mode");
       int command = random(2);
-      printCommand(JODOMODE, command);
-      isHit = jodoState(command);
-      score += getScore(isHit,JODOMODE);
+      printCommand(JODOMODE, command); //lcd에 커맨드 출력
+      isHit = jodoState(command); // 센서 입력
+      score += getScore(isHit,JODOMODE); // ishit가 1이면 score에 점수 더해짐
     }
     else if(num == DISTMODE){
       int isHit = 0;
@@ -236,7 +252,7 @@ void loop() {
     }
     else if(num==ACCELMODE){
       Serial.println("accel mode");
-      int command = random(2);
+      int command = 0;
       int isHit = 0;
       printCommand(ACCELMODE, command);
       isHit = accelState(command);
@@ -244,6 +260,8 @@ void loop() {
       
     }else{
       Serial.println(String("button mode : ")+num);
+      printCommand(0, 0);
+
       int selectedLed = leds[num];
       int selectedBtn = buttons[num];
       int isHit = 0;
